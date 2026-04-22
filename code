@@ -155,7 +155,7 @@ public:
         RefMut(RefCell<T>* o, T* p) : owner(o), ptr(p) {}
     };
 
-    ~RefCell() {
+    ~RefCell() noexcept(false) {
         if (mut_active || shared_count != 0) {
             throw DestructionError("RefCell destroyed while borrows exist");
         }
