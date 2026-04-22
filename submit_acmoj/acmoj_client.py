@@ -157,6 +157,12 @@ def main():
             if not git_url:
                 print("Error: Git URL not provided and could not determine from repository. Use --git-url.")
                 exit(1)
+            # Sanitize credentials if present in URL (e.g., https://user:token@github.com/...)
+            try:
+                import re
+                git_url = re.sub(r'^(https?://)[^@]+@', r'\1', git_url)
+            except Exception:
+                pass
             result = client.submit_git(args.problem_id, git_url)
 
     elif args.command == "status":
