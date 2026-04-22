@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ACMOJ API Client Command Line Tool - C++ File Submission Version v2.2
+ACMOJ API Client Command Line Tool - Git or C++ File Submission Version v2.3
 
 Usage Examples:
 1. Submit C++ source file:
@@ -105,13 +105,15 @@ def main():
     
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Submit C++ source file
-    submit_parser = subparsers.add_parser("submit", help="Submit a C++ source file")
+    # Submit (supports git repo or single file)
+    submit_parser = subparsers.add_parser("submit", help="Submit a git repo or a single source file")
     submit_parser.add_argument("--problem-id", type=int, required=True, help="Problem ID")
-    submit_parser.add_argument("--language", type=str, required=True,
-                               help="Programming language (e.g., cpp, c, python)")
-    submit_parser.add_argument("--code-file", type=str, required=True,
-                               help="Path to the source code file")
+    submit_parser.add_argument("--language", type=str, required=False,
+                               help="Programming language (e.g., cpp, c). If omitted, submit via git.")
+    submit_parser.add_argument("--code-file", type=str, required=False,
+                               help="Path to the source code file (for non-git submissions)")
+    submit_parser.add_argument("--git-url", type=str, required=False,
+                               help="Git repository URL to submit. Defaults to 'origin' remote if not provided.")
 
     # Sub-command for checking submission status
     status_parser = subparsers.add_parser("status", help="Check submission status")
@@ -130,17 +132,32 @@ def main():
     client = ACMOJClient(args.token)
 
     if args.command == "submit":
-        try:
-            with open(args.code_file, 'r', encoding='utf-8') as f:
-                code_text = f.read()
-        except FileNotFoundError:
-            print(f"Error: Code file not found at {args.code_file}")
-            exit(1)
-        except Exception as e:
-            print(f"Error: Failed to read code file: {e}")
-            exit(1)
-
-        result = client.submit_code(args.problem_id, args.language, code_text)
+        if args.language and args.code_file:
+            try:
+                with open(args.code_file, 'r', encoding='utf-8') as f:
+                    code_text = f.read()
+            except FileNotFoundError:
+                print(f"Error: Code file not found at {args.code_file}")
+                exit(1)
+            except Exception as e:
+                print(f"Error: Failed to read code file: {e}")
+                exit(1)
+            result = client.submit_code(args.problem_id, args.language, code_text)
+        else:
+            git_url = args.git_url
+            if not git_url:
+                # Try to fetch origin URL from git
+                try:
+                    import subprocess
+                    git_url = subprocess.check_output([
+                        'git', 'config', '--get', 'remote.origin.url'
+                    ], stderr=subprocess.DEVNULL).decode().strip()
+                except Exception:
+                    git_url = None
+            if not git_url:
+                print("Error: Git URL not provided and could not determine from repository. Use --git-url.")
+                exit(1)
+            result = client.submit_git(args.problem_id, git_url)
 
     elif args.command == "status":
         result = client.get_submission_detail(args.submission_id)
